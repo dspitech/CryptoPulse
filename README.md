@@ -207,26 +207,62 @@ Sous Windows, utilisez WSL 2 (Ubuntu) ou le Cloud Shell : le Makefile suppose un
 
 Cinq commandes, depuis un poste local (voir la [section 9](#9-déploiement-pas-à-pas) pour le détail de chaque étape).
 
+<img width="1900" height="671" alt="image" src="https://github.com/user-attachments/assets/eb955b8b-b5ef-46a2-b62b-a37db38d2cfc" />
+
 ```bash
 # 1. Récupérer le code
 git clone https://github.com/dspitech/CryptoPulse.git
 cd CryptoPulse
+```
+<img width="1696" height="539" alt="image" src="https://github.com/user-attachments/assets/5ace9d17-aecb-4011-9ce3-dfdc16c5f25d" />
+
+```bash
 
 # 2. OBLIGATOIRE : remplacer alert_email par votre vraie adresse (pas @example.com)
 nano infra/envs/dev/terraform.tfvars      # alert_email = "votre.vraie@adresse.com"
+```
 
-# 3. Se connecter à Azure (inutile dans le Cloud Shell)
-az login
+<img width="891" height="202" alt="image" src="https://github.com/user-attachments/assets/7ab9fd9c-2b46-4c23-aa59-2d5d21e8c088" />
 
-# 4. Déployer : providers Azure, state Terraform, infrastructure et application
+<img width="1244" height="652" alt="image" src="https://github.com/user-attachments/assets/1e88a227-d1d4-440b-a0c4-7462ea712b46" />
+
+
+```bash
+# 3. Déployer : providers Azure, state Terraform, infrastructure et application
 make up ALLOWED_IP=203.0.113.10     # remplacer par l'IP publique de VOTRE poste
+```
+<img width="946" height="147" alt="image" src="https://github.com/user-attachments/assets/8882b3b9-0545-4579-be3b-d7ac7e30a1bd" />
 
-# 5. Après 10 à 15 minutes, récupérer les accès
+<img width="1070" height="722" alt="image" src="https://github.com/user-attachments/assets/3354b3c2-57f2-4672-a66a-9a4343324399" />
+
+<img width="1297" height="652" alt="image" src="https://github.com/user-attachments/assets/f17b9bcc-91fb-46bc-996e-412530fbffd2" />
+
+### Fin du déploiment 
+
+- Groupe de ressources
+
+<img width="1007" height="557" alt="image" src="https://github.com/user-attachments/assets/0ccc9e85-ebf2-4aef-af66-144bdcc2449e" />
+
+- les ressources
+<img width="1597" height="788" alt="image" src="https://github.com/user-attachments/assets/a8c7ceb8-cfdb-4059-8662-b2408df09803" />
+
+<img width="1467" height="815" alt="image" src="https://github.com/user-attachments/assets/ceb8725a-72fe-4afd-acfa-1830745833fb" />
+
+<img width="1300" height="815" alt="image" src="https://github.com/user-attachments/assets/0efaf062-92f1-4602-8455-99338a7a082c" />
+
+- Nombre de ressources déployées
+
+<img width="827" height="160" alt="image" src="https://github.com/user-attachments/assets/6341418b-730b-4d7d-ae14-acf9738977dd" />
+
+
+```bash
+# 4. Après 10 à 15 minutes, récupérer les accès
 make output                # toutes les URLs, l'IP de la VM, le nom du Key Vault
 make grafana-password      # Grafana : utilisateur admin
 make secrets               # Airflow : utilisateur admin
 make api-key               # clé de l'API, à envoyer dans l'en-tête X-API-Key
 ```
+
 
 Si vous avez lancé `make up` avec l'adresse d'exemple, corrigez `alert_email` puis relancez `make deploy ALLOWED_IP=<IP de votre PC>` : la VM est recréée (le disque de données est conservé) et le certificat est alors émis.
 
@@ -909,23 +945,66 @@ Cette section illustre le résultat du déploiement. Les images de `docs/screens
 
 ### 4. Airflow : les 4 DAGs
 
+<img width="1906" height="860" alt="image" src="https://github.com/user-attachments/assets/7613fe03-bf4a-4aaf-a2b2-57edc2e359e9" />
+
+<img width="1891" height="870" alt="image" src="https://github.com/user-attachments/assets/672dd2dc-1531-41fa-96d2-073379403dc4" />
+
+<img width="1890" height="789" alt="image" src="https://github.com/user-attachments/assets/692dcf91-7772-414c-8be0-d82d68825c77" />
+
 
 ### 5. Grafana : CryptoPulse, Marché
+
+<img width="1762" height="767" alt="image" src="https://github.com/user-attachments/assets/29b9d39e-54f9-470f-883b-47c3cd71bd19" />
+
+
+<img width="1902" height="867" alt="image" src="https://github.com/user-attachments/assets/1b32a310-e064-43e6-932a-1b46dae50aae" />
+
+<img width="1911" height="862" alt="image" src="https://github.com/user-attachments/assets/e68d3441-7b92-458f-a91b-f6ca54743269" />
+
+<img width="1882" height="851" alt="image" src="https://github.com/user-attachments/assets/aef6273a-1333-4a39-be12-ea00fcf97f0c" />
+
+
 
 
 ### 6. Grafana : CryptoPulse, Pipeline et qualité
 
+<img width="1916" height="867" alt="image" src="https://github.com/user-attachments/assets/15c18756-38c0-44b7-a620-21dfecbecb30" />
+
+<img width="1901" height="867" alt="image" src="https://github.com/user-attachments/assets/41c9a8bf-1ff1-4abb-9508-c8a75f8a4832" />
+
+<img width="1885" height="862" alt="image" src="https://github.com/user-attachments/assets/942107bb-caad-4ede-9dd4-5ac3ef30e737" />
+
+<img width="1887" height="857" alt="image" src="https://github.com/user-attachments/assets/937c3be6-deb5-4bed-9b42-d76cc01a02e0" />
+
+
 
 ### 7. Grafana : CryptoPulse, Infrastructure et logs
+
+<img width="1891" height="876" alt="image" src="https://github.com/user-attachments/assets/49a826f1-4867-4bbb-949e-1f676cbcc214" />
+
+<img width="1917" height="867" alt="image" src="https://github.com/user-attachments/assets/95eb9837-0bf5-41ed-be41-497474a46622" />
+
 
 
 ### 8. Dashboard Streamlit
 
+<img width="1905" height="847" alt="image" src="https://github.com/user-attachments/assets/bec3396e-6c1a-41fd-a2bd-5c06342ed5cb" />
+
 
 ### 9. API : documentation interactive
 
+<img width="1886" height="872" alt="image" src="https://github.com/user-attachments/assets/24902c46-8dde-4bcc-b390-c4b1083cb3b1" />
+
+
 
 ### 10. Key Vault : liste des secrets
+
+### 11. Sentiment
+
+<img width="1887" height="860" alt="image" src="https://github.com/user-attachments/assets/91962501-2e84-4f37-838f-a6e9081c188e" />
+
+<img width="1882" height="870" alt="image" src="https://github.com/user-attachments/assets/afdf5bd6-3090-4575-a901-b0344995499b" />
+
 
 
 ## 24. Licence et auteur
