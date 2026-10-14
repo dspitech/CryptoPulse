@@ -47,7 +47,8 @@ Auteur : Pape Lo. Cours DataOps, année 2025 - 2026.
 20. [Dépannage](#20-dépannage)
 21. [Limites et évolutions](#21-limites-et-évolutions)
 22. [Documentation complémentaire](#22-documentation-complémentaire)
-23. [Licence et auteur](#23-licence-et-auteur)
+23. [Captures d'écran](#23-captures-décran)
+24. [Licence et auteur](#24-licence-et-auteur)
 
 ## 1. Fonctionnalités
 
@@ -178,7 +179,7 @@ cryptopulse/
 
 - Un abonnement Azure (Azure for Students convient).
 - Le rôle **Owner** sur l'abonnement, ou à défaut **Contributor** et **User Access Administrator** : Terraform crée des attributions de rôles (identité managée de la VM vers Key Vault et Storage).
-- Une adresse e-mail valide pour `alert_email` : elle reçoit les alertes Azure Monitor et les alertes de budget, et sert de contact à Let's Encrypt.
+- Une **vraie** adresse e-mail pour `alert_email` : elle reçoit les alertes Azure Monitor et les alertes de budget, et sert de contact à Let's Encrypt. **Une adresse en `@example.com` (valeur d'exemple `you@example.com`) est refusée par Let's Encrypt : Caddy n'obtient alors aucun certificat et le navigateur affiche `ERR_CONNECTION_RESET`.**
 
 ### Outils
 
@@ -211,7 +212,8 @@ Cinq commandes, depuis un poste local (voir la [section 9](#9-déploiement-pas-�
 git clone https://github.com/dspitech/CryptoPulse.git
 cd CryptoPulse
 
-# 2. Éditer infra/envs/dev/terraform.tfvars et remplacer alert_email par votre adresse
+# 2. OBLIGATOIRE : remplacer alert_email par votre vraie adresse (pas @example.com)
+nano infra/envs/dev/terraform.tfvars      # alert_email = "votre.vraie@adresse.com"
 
 # 3. Se connecter à Azure (inutile dans le Cloud Shell)
 az login
@@ -222,7 +224,10 @@ make up ALLOWED_IP=203.0.113.10     # remplacer par l'IP publique de VOTRE poste
 # 5. Après 10 à 15 minutes, récupérer les accès
 make output                          # URLs, IP, nom du Key Vault
 make grafana-password                # mot de passe de Grafana (utilisateur admin)
+make ssh-key                         # écrit la clé SSH dans ~/.ssh/cryptopulse-dev
 ```
+
+Si vous avez lancé `make up` avec l'adresse d'exemple, corrigez `alert_email` puis relancez `make deploy ALLOWED_IP=<IP de votre PC>` : la VM est recréée (le disque de données est conservé) et le certificat est alors émis.
 
 Pour connaître votre IP publique, depuis votre poste (pas depuis le Cloud Shell) : `curl -s https://api.ipify.org`.
 
@@ -305,9 +310,15 @@ cd CryptoPulse
 
 Éditez `infra/envs/dev/terraform.tfvars`. Le seul réglage obligatoire est `alert_email`. Les autres valeurs par défaut conviennent à un premier déploiement (liste complète à la [section 7](#7-configuration-terraform)).
 
+```bash
+nano infra/envs/dev/terraform.tfvars      # alert_email = "votre.vraie@adresse.com"
+```
+
+**Attention :** n'utilisez jamais une adresse `@example.com`. Let's Encrypt la refuse (`contact email has forbidden domain "example.com"`), Caddy ne peut pas émettre le certificat HTTPS et le site reste inaccessible. Si cela vous arrive, corrigez le fichier puis lancez `make deploy ALLOWED_IP=<IP de votre PC>`.
+
 | Réglage | Pourquoi y toucher |
 |---|---|
-| `alert_email` | Obligatoire : destinataire des alertes et contact Let's Encrypt |
+| `alert_email` | Obligatoire : vraie adresse, destinataire des alertes et contact Let's Encrypt (jamais `@example.com`) |
 | `monthly_budget` | Mettre par exemple `40` pour être alerté avant d'épuiser le crédit |
 | `auto_shutdown_time`, `auto_start_time` | Horaires d'extinction et de démarrage de la VM (UTC par défaut) |
 | `coins` | Cryptomonnaies suivies |
@@ -374,7 +385,7 @@ Les secrets ont été générés par Terraform et se trouvent uniquement dans Ke
 ### Premiers pas après le déploiement
 
 1. Ouvrir **Airflow** (`airflow_url`, utilisateur `admin`) : les quatre DAGs sont actifs, le pipeline principal tourne chaque heure.
-2. Déclencher `cryptopulse_backfill` (bouton de lancement avec configuration, paramètre `days` à 90 par défaut) : l'historique alimente moyennes mobiles, volatilité, anomalies et prévisions. Autre méthode, depuis la VM : `cp-compose exec airflow-scheduler airflow dags trigger cryptopulse_backfill --conf '{"days": 90}'` (l'alias `cp-compose` est défini dans le [runbook](docs/runbook.md#3-opérations-courantes)).
+2. Déclencher dans cet ordre `cryptopulse_backfill`, puis `cryptopulse_pipeline`, puis `cryptopulse_forecast` (bouton ▶ de la ligne du DAG, puis **Trigger DAG w/ config** pour le backfill, paramètre `days` à 90 par défaut). Le forecast est ignoré tant qu'il n'a pas 21 jours d'historique, et un premier passage du pipeline sur une base vide peut échouer sur `check_quality` : relancez-le après le backfill : l'historique alimente moyennes mobiles, volatilité, anomalies et prévisions. Autre méthode, depuis la VM : `cp-compose exec airflow-scheduler airflow dags trigger cryptopulse_backfill --conf '{"days": 90}'` (l'alias `cp-compose` est défini dans le [runbook](docs/runbook.md#3-opérations-courantes)).
 3. Ouvrir **Grafana** (`grafana_url`, utilisateur `admin`) : le dashboard Marché est la page d'accueil.
 4. Tester l'**API** sur `api_docs_url` avec la clé obtenue par `make api-key`.
 
@@ -465,6 +476,29 @@ icacls "$env:USERPROFILE\.ssh\cryptopulse-dev" /inheritance:r /grant:r "$($env:U
 ```
 
 Sous Windows PowerShell 5.1, n'utilisez pas l'opérateur `>` : il écrit en UTF-16 et la clé devient illisible pour `ssh`.
+
+**Méthode D : depuis le Cloud Shell, puis téléchargement sur votre PC**
+
+Utile si vous avez déployé depuis le Cloud Shell et voulez vous connecter depuis votre poste. Dans le Cloud Shell :
+
+```bash
+make ssh-key                    # écrit ~/.ssh/cryptopulse-dev
+download ~/.ssh/cryptopulse-dev # télécharge le fichier vers votre PC
+```
+
+Si la commande `download` n'est pas disponible, utilisez le bouton **Gérer les fichiers**, puis **Télécharger** de la barre du Cloud Shell, et saisissez le chemin `~/.ssh/cryptopulse-dev`.
+
+Sur votre PC, placez ensuite le fichier dans `~/.ssh/` (`%USERPROFILE%\.ssh\` sous Windows) et protégez-le :
+
+```bash
+chmod 600 ~/.ssh/cryptopulse-dev          # Linux, macOS, WSL
+```
+
+```powershell
+icacls "$env:USERPROFILE\.ssh\cryptopulse-dev" /inheritance:r /grant:r "$($env:USERNAME):(R)"
+```
+
+Supprimez ensuite la copie du Cloud Shell (`rm ~/.ssh/cryptopulse-dev`) si vous ne vous y connectez pas en SSH : la clé donne un accès administrateur à la VM.
 
 **Méthode C : depuis le portail Azure**
 
@@ -584,6 +618,7 @@ Le port 22 est fermé. Deux possibilités :
 
 ### Si une page ne s'ouvre pas
 
+0. `ERR_CONNECTION_RESET` ou erreur de certificat : sur la VM, `docker compose -p cryptopulse logs caddy --tail=30`. Si vous lisez `forbidden domain "example.com"`, `alert_email` est resté à sa valeur d'exemple : corrigez-le dans `infra/envs/dev/terraform.tfvars` et relancez `make deploy ALLOWED_IP=<IP de votre PC>`.
 1. Vérifiez que votre IP actuelle est bien `allowed_ip` : tout le reste est bloqué par le NSG.
 2. Vérifiez que la VM est démarrée (extinction à 21h00 UTC en `dev`).
 3. Un certificat invalide pendant les premières minutes est normal : Caddy attend l'émission Let's Encrypt.
@@ -830,6 +865,7 @@ Le script crée l'application, les identifiants fédérés, les rôles nécessai
 |---|---|---|
 | `ALLOWED_IP introuvable` | `api.ipify.org` injoignable | `make deploy ALLOWED_IP=x.x.x.x` |
 | Services inaccessibles depuis le navigateur | IP différente de `allowed_ip` | `make deploy ALLOWED_IP=<votre IP>` |
+| `ERR_CONNECTION_RESET` sur HTTPS, logs Caddy avec `forbidden domain "example.com"` | `alert_email` est une adresse `@example.com`, refusée par Let's Encrypt | Mettre une vraie adresse dans `infra/envs/dev/terraform.tfvars`, puis `make deploy ALLOWED_IP=<IP de votre PC>` (la VM est recréée) |
 | `Connection timed out` en SSH | IP différente de `allowed_ip`, VM éteinte ou `enable_ssh = false` | Voir le [dépannage SSH](#dépannage-ssh) |
 | `Permission denied (publickey)` | Mauvaise clé ou mauvais utilisateur | `make ssh-key`, puis `ssh -i ~/.ssh/cryptopulse-dev cpadmin@<IP>` |
 | `AuthorizationFailed` ou `MissingSubscriptionRegistration` | Resource provider non enregistré | `make providers`, attendre quelques minutes |
@@ -871,6 +907,41 @@ Les procédures détaillées par alerte et les opérations courantes sont dans l
 | [docs/runbook.md](docs/runbook.md) | Exploitation : accès, opérations, sauvegarde et restauration, rotation des secrets, playbooks par alerte, test de restauration |
 | [docs/adr/README.md](docs/adr/README.md) | Onze décisions d'architecture avec contexte, alternatives et conséquences |
 
-## 23. Licence et auteur
+## 23. Captures d'écran
+
+Cette section illustre le résultat du déploiement. Les images de `docs/screenshots/` sont des **placeholders gris** : remplacez-les par vos propres captures, en gardant exactement le même nom de fichier pour que le README les affiche sans autre modification.
+
+
+### 1. Fin de make up : sorties Terraform
+
+
+### 2. Ressources Azure déployées
+
+
+### 3. Connexion SSH et conteneurs en service
+
+
+### 4. Airflow : les 4 DAGs
+
+
+### 5. Grafana : CryptoPulse, Marché
+
+
+### 6. Grafana : CryptoPulse, Pipeline et qualité
+
+
+### 7. Grafana : CryptoPulse, Infrastructure et logs
+
+
+### 8. Dashboard Streamlit
+
+
+### 9. API : documentation interactive
+
+
+### 10. Key Vault : liste des secrets
+
+
+## 24. Licence et auteur
 
 Projet distribué sous licence MIT (voir [LICENSE](LICENSE)). Auteur : Pape Lo, cours DataOps, année 2025 - 2026.
