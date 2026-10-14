@@ -222,9 +222,10 @@ az login
 make up ALLOWED_IP=203.0.113.10     # remplacer par l'IP publique de VOTRE poste
 
 # 5. Après 10 à 15 minutes, récupérer les accès
-make output                          # URLs, IP, nom du Key Vault
-make grafana-password                # mot de passe de Grafana (utilisateur admin)
-make ssh-key                         # écrit la clé SSH dans ~/.ssh/cryptopulse-dev
+make output                # toutes les URLs, l'IP de la VM, le nom du Key Vault
+make grafana-password      # Grafana : utilisateur admin
+make secrets               # Airflow : utilisateur admin
+make api-key               # clé de l'API, à envoyer dans l'en-tête X-API-Key
 ```
 
 Si vous avez lancé `make up` avec l'adresse d'exemple, corrigez `alert_email` puis relancez `make deploy ALLOWED_IP=<IP de votre PC>` : la VM est recréée (le disque de données est conservé) et le certificat est alors émis.
@@ -820,21 +821,6 @@ make e2e               # test d'intégration complet dans des conteneurs jetable
 | Intégration (e2e) | Pipeline sur PostgreSQL 16, Azurite et dbt 1.8.8 réels : idempotence, dbt, détection d'une anomalie injectée sans faux positif, exports Parquet relus, backfill, sentiment, prévisions et backtest, API sur base réelle, rôles en lecture seule, toutes les requêtes SQL des dashboards avec le rôle de lecture, requêtes des exporters, cycle `pg_dump` et `pg_restore` |
 | Documentation | Cibles `make`, alertes, variables, DAGs et dashboards cités dans ce README, liens internes, absence d'emoji et de tirets longs |
 
-### Ce qui est vérifié par les outils officiels
-
-Chaque configuration est validée par l'outil correspondant : `promtool` (Prometheus et règles), `amtool` (Alertmanager), `loki -verify-config`, `promtail -check-syntax`, `caddy validate`, `docker compose config` (production, profils et local), blackbox `--config.check`, statsd-exporter `--check-config`, `actionlint` (workflows), `shellcheck` (scripts) et `gitleaks` (secrets). Les 57 requêtes PromQL des dashboards sont validées par `promtool`, et le mapping StatsD a été testé avec de vrais paquets Airflow.
-
-### Ce qui n'a pas pu être testé
-
-Soyez conscient de ces limites avant le premier déploiement :
-
-- `terraform validate`, `plan` et `apply` n'ont pas été exécutés (pas d'accès aux registres de providers ni à un abonnement). Le HCL est formaté et analysé, et le câblage est contrôlé statiquement, mais le premier `make up` reste le vrai test d'intégration Azure.
-- Le build des images Docker (Airflow, API, Streamlit) n'a pas été exécuté. Les versions de dépendances ont été installées et testées dans des environnements isolés équivalents.
-- Le rendu visuel des dashboards dans Grafana n'a pas été vérifié : les requêtes et la structure le sont, pas l'apparence.
-- L'émission réelle des certificats Let's Encrypt, la Logic App de démarrage, le budget, les Private Endpoints, les snapshots via l'API Azure et le comportement exact de l'abonnement Students (régions, politiques) dépendent d'Azure.
-- Le comportement de l'API publique de CoinGecko sans clé (limites de débit) et des flux RSS réels n'est pas garanti.
-
-Il est normal d'ajuster quelques détails propres à votre abonnement lors du premier déploiement.
 
 ## 19. CI/CD
 
