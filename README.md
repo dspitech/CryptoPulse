@@ -11,6 +11,8 @@
 ![Licence](https://img.shields.io/badge/licence-MIT-green)
 
 CryptoPulse ingère chaque heure des prix de cryptomonnaies, les actualités du secteur et l'indice Fear and Greed. Elle stocke tout dans un Data Lake, transforme les données avec dbt, détecte les anomalies, produit des prévisions, contrôle la qualité, expose les résultats par une API et cinq dashboards Grafana, et se sauvegarde seule.
+<img width="1905" height="847" alt="image" src="https://github.com/user-attachments/assets/72e005d2-3d22-41b6-a97f-83c92fa0c738" />
+
 
 Le projet prolonge les TP 1 à 8 du cours DataOps (Azurite, SQLite, dbt, Airflow, Terraform, rapports qualité) et supprime toutes leurs étapes manuelles : un seul `make up` déploie la plateforme, et un simple `make deploy` la met à jour.
 
@@ -997,9 +999,7 @@ Cette section illustre le résultat du déploiement. Les images de `docs/screens
 
 
 
-### 10. Key Vault : liste des secrets
-
-### 11. Sentiment
+### 10. Sentiment
 
 <img width="1887" height="860" alt="image" src="https://github.com/user-attachments/assets/91962501-2e84-4f37-838f-a6e9081c188e" />
 
