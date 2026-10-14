@@ -1,8 +1,25 @@
 # CryptoPulse
 
-Plateforme DataOps complète sur Azure, déployée à 100 % avec Terraform. Elle ingère chaque heure des prix de cryptomonnaies, les actualités du secteur et l'indice Fear and Greed, stocke tout dans un Data Lake, transforme les données avec dbt, détecte les anomalies, produit des prévisions, contrôle la qualité, expose les résultats par une API et cinq dashboards Grafana, et se sauvegarde seule.
+**Plateforme DataOps de bout en bout sur Azure, déployée à 100 % avec Terraform.**
+
+![Terraform](https://img.shields.io/badge/Terraform-%E2%89%A5%201.5-7B42BC?logo=terraform&logoColor=white)
+![Azure](https://img.shields.io/badge/Azure-VM%20%7C%20ADLS%20Gen2%20%7C%20Key%20Vault-0078D4?logo=microsoftazure&logoColor=white)
+![Airflow](https://img.shields.io/badge/Airflow-4%20DAGs-017CEE?logo=apacheairflow&logoColor=white)
+![dbt](https://img.shields.io/badge/dbt-1.8.8-FF694B?logo=dbt&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-5%20dashboards-F46800?logo=grafana&logoColor=white)
+![Licence](https://img.shields.io/badge/licence-MIT-green)
+
+CryptoPulse ingère chaque heure des prix de cryptomonnaies, les actualités du secteur et l'indice Fear and Greed. Elle stocke tout dans un Data Lake, transforme les données avec dbt, détecte les anomalies, produit des prévisions, contrôle la qualité, expose les résultats par une API et cinq dashboards Grafana, et se sauvegarde seule.
 
 Le projet prolonge les TP 1 à 8 du cours DataOps (Azurite, SQLite, dbt, Airflow, Terraform, rapports qualité) et supprime toutes leurs étapes manuelles : un seul `make up` déploie la plateforme, et un simple `make deploy` la met à jour.
+
+| | |
+|---|---|
+| **Déploiement** | Une commande, aucune connexion SSH requise, 10 à 15 minutes jusqu'à la plateforme complète |
+| **Coût** | De l'ordre de 50 USD par mois en continu (VM, disques, IP), moins avec l'extinction nocturne (voir [Coûts](#15-coûts-et-planification-de-la-vm)) |
+| **Accès** | HTTPS automatique, limité à votre IP. SSH par clé générée et stockée dans Key Vault |
+| **Reprise** | Sauvegarde PostgreSQL quotidienne, snapshots du disque, reconstruction par Terraform |
 
 Auteur : Pape Lo. Cours DataOps, année 2025 - 2026.
 
@@ -12,21 +29,25 @@ Auteur : Pape Lo. Cours DataOps, année 2025 - 2026.
 2. [Architecture](#2-architecture)
 3. [Données et traitements](#3-données-et-traitements)
 4. [Structure du dépôt](#4-structure-du-dépôt)
-5. [Configuration Terraform](#5-configuration-terraform)
-6. [Déploiement automatique](#6-déploiement-automatique)
-7. [Déploiement pas à pas](#7-déploiement-pas-à-pas)
-8. [Accès aux services](#8-accès-aux-services)
-9. [API de données](#9-api-de-données)
-10. [Dashboards, métriques et alertes](#10-dashboards-métriques-et-alertes)
-11. [Sauvegardes et restauration](#11-sauvegardes-et-restauration)
-12. [Coûts et planification de la VM](#12-coûts-et-planification-de-la-vm)
-13. [Sécurité](#13-sécurité)
-14. [Développement local](#14-développement-local)
-15. [Tests et qualité](#15-tests-et-qualité)
-16. [CI/CD](#16-cicd)
-17. [Dépannage](#17-dépannage)
-18. [Limites et évolutions](#18-limites-et-évolutions)
-19. [Documentation complémentaire](#19-documentation-complémentaire)
+5. [Prérequis](#5-prérequis)
+6. [Démarrage rapide](#6-démarrage-rapide)
+7. [Configuration Terraform](#7-configuration-terraform)
+8. [Déploiement automatique](#8-déploiement-automatique)
+9. [Déploiement pas à pas](#9-déploiement-pas-à-pas)
+10. [Accès SSH à la VM](#10-accès-ssh-à-la-vm)
+11. [Accès aux services](#11-accès-aux-services)
+12. [API de données](#12-api-de-données)
+13. [Dashboards, métriques et alertes](#13-dashboards-métriques-et-alertes)
+14. [Sauvegardes et restauration](#14-sauvegardes-et-restauration)
+15. [Coûts et planification de la VM](#15-coûts-et-planification-de-la-vm)
+16. [Sécurité](#16-sécurité)
+17. [Développement local](#17-développement-local)
+18. [Tests et qualité](#18-tests-et-qualité)
+19. [CI/CD](#19-cicd)
+20. [Dépannage](#20-dépannage)
+21. [Limites et évolutions](#21-limites-et-évolutions)
+22. [Documentation complémentaire](#22-documentation-complémentaire)
+23. [Licence et auteur](#23-licence-et-auteur)
 
 ## 1. Fonctionnalités
 
@@ -151,7 +172,63 @@ cryptopulse/
 └── README.md
 ```
 
-## 5. Configuration Terraform
+## 5. Prérequis
+
+### Compte et droits Azure
+
+- Un abonnement Azure (Azure for Students convient).
+- Le rôle **Owner** sur l'abonnement, ou à défaut **Contributor** et **User Access Administrator** : Terraform crée des attributions de rôles (identité managée de la VM vers Key Vault et Storage).
+- Une adresse e-mail valide pour `alert_email` : elle reçoit les alertes Azure Monitor et les alertes de budget, et sert de contact à Let's Encrypt.
+
+### Outils
+
+| Outil | Version | Utilité | Installation |
+|---|---|---|---|
+| Azure CLI (`az`) | récente | Connexion, resource providers, lecture des secrets Key Vault | [Installer Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) |
+| Terraform | 1.5.0 ou plus | Déploie toute l'infrastructure | [Installer Terraform](https://developer.hashicorp.com/terraform/install) |
+| GNU `make` et `bash` | toute version | Le Makefile s'exécute avec `/bin/bash` | Fournis par Linux et macOS |
+| `curl` | toute version | Détection de votre IP publique | Fourni par défaut |
+| Client OpenSSH (`ssh`, `scp`) | toute version | Connexion à la VM (facultatif pour déployer) | Fourni par Linux, macOS et Windows 10 ou plus |
+| Docker | récente | Uniquement pour le [développement local](#17-développement-local) et `make e2e` | [Installer Docker](https://docs.docker.com/get-docker/) |
+
+### Où lancer les commandes
+
+| | Poste local (Linux, macOS, WSL 2) | Azure Cloud Shell (bash) |
+|---|---|---|
+| Outils | À installer | Fournis (az, Terraform, make, curl) |
+| Authentification | `az login` | Déjà connecté |
+| `ALLOWED_IP` | Détectée automatiquement | **À indiquer explicitement** : la détection renverrait l'IP du Cloud Shell, pas celle de votre navigateur |
+| SSH vers la VM | Direct | Ne fonctionne que si `allowed_ip` est l'IP sortante du Cloud Shell, qui change d'une session à l'autre : préférez votre poste |
+
+Sous Windows, utilisez WSL 2 (Ubuntu) ou le Cloud Shell : le Makefile suppose un shell bash.
+
+## 6. Démarrage rapide
+
+Cinq commandes, depuis un poste local (voir la [section 9](#9-déploiement-pas-à-pas) pour le détail de chaque étape).
+
+```bash
+# 1. Récupérer le code
+git clone https://github.com/dspitech/CryptoPulse.git
+cd CryptoPulse
+
+# 2. Éditer infra/envs/dev/terraform.tfvars et remplacer alert_email par votre adresse
+
+# 3. Se connecter à Azure (inutile dans le Cloud Shell)
+az login
+
+# 4. Déployer : providers Azure, state Terraform, infrastructure et application
+make up ALLOWED_IP=203.0.113.10     # remplacer par l'IP publique de VOTRE poste
+
+# 5. Après 10 à 15 minutes, récupérer les accès
+make output                          # URLs, IP, nom du Key Vault
+make grafana-password                # mot de passe de Grafana (utilisateur admin)
+```
+
+Pour connaître votre IP publique, depuis votre poste (pas depuis le Cloud Shell) : `curl -s https://api.ipify.org`.
+
+Ouvrez ensuite l'URL `grafana_url` affichée par `make output`, puis suivez les [premiers pas](#premiers-pas-après-le-déploiement). Pour vous connecter à la VM en SSH, voir la [section 10](#10-accès-ssh-à-la-vm).
+
+## 7. Configuration Terraform
 
 Les valeurs se règlent dans `infra/envs/dev/terraform.tfvars` et `infra/envs/prod/terraform.tfvars`. Le seul réglage à modifier avant un premier déploiement est `alert_email`.
 
@@ -165,7 +242,7 @@ Les valeurs se règlent dans `infra/envs/dev/terraform.tfvars` et `infra/envs/pr
 | `vm_size` | `Standard_B2s` | Taille de la VM |
 | `admin_username` | `cpadmin` | Utilisateur administrateur de la VM |
 | `coins` | 5 cryptos en dev, 7 en prod | Identifiants CoinGecko suivis |
-| `enable_ssh` | `true` en dev, `false` en prod | Ouvre le port 22 depuis `allowed_ip` |
+| `enable_ssh` | `true` en dev, `false` en prod | Ouvre le port 22 depuis `allowed_ip` (voir [Accès SSH](#10-accès-ssh-à-la-vm)) |
 | `data_disk_gb` | 32 en dev, 64 en prod | Taille du disque de données |
 | `auto_shutdown_time` | `2100` en dev | Extinction quotidienne au format HHMM, vide pour désactiver |
 | `auto_shutdown_timezone` | `UTC` | Fuseau de l'extinction et du démarrage |
@@ -185,9 +262,25 @@ Les valeurs se règlent dans `infra/envs/dev/terraform.tfvars` et `infra/envs/pr
 
 Deux garde-fous Terraform empêchent les configurations dangereuses : `lock_public_access` exige `enable_private_endpoints` (sinon la VM perdrait l'accès au Key Vault) et `deployer_ip` (sinon Terraform ne pourrait plus écrire dans le Key Vault).
 
-## 6. Déploiement automatique
+## 8. Déploiement automatique
 
-Un seul `terraform apply` suffit. Voici ce qui se passe, dans l'ordre.
+Un seul `terraform apply` suffit. Aucune connexion SSH n'est nécessaire pour déployer ou mettre à jour.
+
+```mermaid
+flowchart LR
+    A["make up"] --> B["terraform apply"]
+    B --> C["Key Vault : secrets et clé SSH"]
+    B --> D["Data Lake : app.zip"]
+    B --> E["VM + cloud-init"]
+    E --> F["cryptopulse-sync"]
+    D --> F
+    F --> G["deploy.sh"]
+    C --> G
+    G --> H["docker compose up"]
+    H --> I["Plateforme en service"]
+```
+
+Voici ce qui se passe, dans l'ordre.
 
 1. Terraform génère une clé SSH, tous les mots de passe, la clé d'API et la clé Fernet, et les écrit dans Key Vault.
 2. Terraform empaquette `app/` en `app.zip` (sans secrets locaux ni tests) et le dépose dans le container `artifacts`.
@@ -197,43 +290,115 @@ Un seul `terraform apply` suffit. Voici ce qui se passe, dans l'ordre.
 6. Toutes les 5 minutes, la synchronisation compare l'ETag de l'artefact : si le code a changé, les fichiers sont mis à jour en place (`rsync --inplace`, qui garde valides les bind mounts Docker) et la stack est redéployée. Cela couvre aussi un premier essai interrompu par la propagation des droits RBAC.
 7. Chaque nuit, une minuterie lance la sauvegarde.
 
-Aucune connexion SSH n'est nécessaire pour déployer ou mettre à jour. Le premier démarrage complet prend 10 à 15 minutes après la fin de `terraform apply` (paquets, build des images, certificats).
+Le premier démarrage complet prend 10 à 15 minutes après la fin de `terraform apply` (paquets, build des images, certificats).
 
-## 7. Déploiement pas à pas
+## 9. Déploiement pas à pas
 
-### Prérequis
-
-- Un abonnement Azure for Students.
-- Azure CLI et Terraform 1.5 ou plus, ainsi que `make` et `curl`. Le Cloud Shell Azure (bash) fournit tout cela.
-- Renseigner `alert_email` dans `infra/envs/dev/terraform.tfvars`.
-
-### Déploiement
+### Étape 1 : récupérer le code
 
 ```bash
-az login                                    # inutile dans le Cloud Shell
-make up ALLOWED_IP=203.0.113.10             # votre IP publique
+git clone https://github.com/dspitech/CryptoPulse.git
+cd CryptoPulse
 ```
 
-`make up` enchaîne `make providers` (enregistre les resource providers Azure, dont Logic et Consumption), `make bootstrap` (storage du state Terraform) et `make deploy`. Sans `ALLOWED_IP`, l'IP est détectée avec `api.ipify.org`, mais dans le Cloud Shell il s'agit de l'IP du Cloud Shell et non de celle de votre navigateur : indiquez-la explicitement.
+### Étape 2 : configurer l'environnement
 
-Pour fournir un webhook d'alerte :
+Éditez `infra/envs/dev/terraform.tfvars`. Le seul réglage obligatoire est `alert_email`. Les autres valeurs par défaut conviennent à un premier déploiement (liste complète à la [section 7](#7-configuration-terraform)).
+
+| Réglage | Pourquoi y toucher |
+|---|---|
+| `alert_email` | Obligatoire : destinataire des alertes et contact Let's Encrypt |
+| `monthly_budget` | Mettre par exemple `40` pour être alerté avant d'épuiser le crédit |
+| `auto_shutdown_time`, `auto_start_time` | Horaires d'extinction et de démarrage de la VM (UTC par défaut) |
+| `coins` | Cryptomonnaies suivies |
+
+Pour recevoir les alertes sur un webhook (facultatif) :
 
 ```bash
 export TF_VAR_notify_webhook_url="https://exemple.com/webhook"
 ```
 
+### Étape 3 : se connecter à Azure
+
+```bash
+az login                                   # inutile dans le Cloud Shell
+az account show --query name -o tsv        # vérifier l'abonnement actif
+az account set --subscription "<nom ou id>"   # si plusieurs abonnements
+```
+
+### Étape 4 : lancer le déploiement
+
+```bash
+make up ALLOWED_IP=203.0.113.10
+```
+
+`make up` enchaîne trois cibles que vous pouvez aussi lancer une à une :
+
+| Cible | Rôle |
+|---|---|
+| `make providers` | Enregistre les resource providers Azure nécessaires (dont Logic et Consumption). À faire une fois par abonnement |
+| `make bootstrap` | Crée le storage qui conserve le state Terraform (resource group `rg-cryptopulse-tfstate`) |
+| `make deploy` | Initialise Terraform et applique l'infrastructure de l'environnement choisi |
+
+`ALLOWED_IP` est la seule adresse autorisée sur SSH, Grafana, Airflow, le dashboard et l'API. Sans ce paramètre, l'IP est détectée avec `api.ipify.org`, ce qui est faux dans le Cloud Shell : indiquez-la explicitement.
+
+Terraform se termine en quelques minutes et affiche les sorties (`grafana_url`, `airflow_url`, `dashboard_url`, `api_url`, `fqdn`, `ssh_command`...). **La VM continue ensuite à s'installer pendant 10 à 15 minutes** (paquets, build des images, certificats).
+
+### Étape 5 : attendre la fin de l'installation
+
+Les services répondent d'abord par une erreur de connexion, puis par un avertissement de certificat, puis normalement. Pour suivre l'avancement depuis la VM (voir la [section 10](#10-accès-ssh-à-la-vm)) :
+
+```bash
+cloud-init status --wait                              # fin de l'initialisation
+sudo journalctl -u cryptopulse-sync -f                # déploiement en cours
+docker compose -p cryptopulse ps                      # état des conteneurs
+```
+
+Sans SSH, testez simplement l'API (aucune clé requise pour ce point d'accès) :
+
+```bash
+curl -s https://<fqdn>:8444/health
+```
+
+### Étape 6 : récupérer les URLs et les identifiants
+
+```bash
+make output                # toutes les URLs, l'IP de la VM, le nom du Key Vault
+make grafana-password      # Grafana : utilisateur admin
+make secrets               # Airflow : utilisateur admin
+make api-key               # clé de l'API, à envoyer dans l'en-tête X-API-Key
+```
+
+Les secrets ont été générés par Terraform et se trouvent uniquement dans Key Vault. Ils ne sont jamais écrits dans Git.
+
 ### Premiers pas après le déploiement
 
-1. Attendre la fin du premier démarrage (10 à 15 minutes). Terraform affiche `grafana_url`, `airflow_url`, `dashboard_url`, `api_url` et `fqdn`.
-2. Récupérer les mots de passe avec `make secrets` (Airflow) et `make grafana-password` (Grafana).
-3. Dans Airflow, déclencher `cryptopulse_backfill` : l'historique de 90 jours alimente moyennes mobiles, volatilité, anomalies et prévisions. Le pipeline principal tourne ensuite seul chaque heure.
-4. Ouvrir Grafana : le dashboard Marché est la page d'accueil.
+1. Ouvrir **Airflow** (`airflow_url`, utilisateur `admin`) : les quatre DAGs sont actifs, le pipeline principal tourne chaque heure.
+2. Déclencher `cryptopulse_backfill` (bouton de lancement avec configuration, paramètre `days` à 90 par défaut) : l'historique alimente moyennes mobiles, volatilité, anomalies et prévisions. Autre méthode, depuis la VM : `cp-compose exec airflow-scheduler airflow dags trigger cryptopulse_backfill --conf '{"days": 90}'` (l'alias `cp-compose` est défini dans le [runbook](docs/runbook.md#3-opérations-courantes)).
+3. Ouvrir **Grafana** (`grafana_url`, utilisateur `admin`) : le dashboard Marché est la page d'accueil.
+4. Tester l'**API** sur `api_docs_url` avec la clé obtenue par `make api-key`.
 
-Autres cibles utiles : `make plan`, `make output`, `make deploy ENV=prod`, `make destroy`, `make help`.
+### Référence des commandes
+
+| Commande | Effet |
+|---|---|
+| `make help` | Liste toutes les cibles |
+| `make up` | Premier déploiement complet |
+| `make plan` | Prévisualise les changements sans les appliquer |
+| `make deploy` | Applique l'infrastructure et publie le nouveau code |
+| `make output` | Affiche URLs, IP et nom du Key Vault |
+| `make ssh-key` | Écrit la clé SSH dans `~/.ssh/cryptopulse-<ENV>` |
+| `make tunnel` | Tunnel SSH vers Prometheus et Alertmanager |
+| `make secrets`, `make grafana-password`, `make api-key` | Lisent les secrets dans Key Vault |
+| `make destroy` | Détruit l'environnement |
+
+Ajoutez `ENV=prod` à n'importe quelle commande pour viser la production (`make deploy ENV=prod`).
 
 ### Mettre à jour
 
 Modifier le code de `app/` ou l'infrastructure, puis `make deploy`. Un changement de code est déployé dans les 5 minutes sans recréer la VM. Modifier `coins` ou une option qui change le cloud-init recrée la VM (le disque de données est conservé).
+
+Si votre IP publique change, relancez `make deploy ALLOWED_IP=<nouvelle IP>` : seul le NSG est modifié.
 
 ### Détruire
 
@@ -244,24 +409,187 @@ make destroy ENV=prod
 
 Supprimez ensuite le resource group `rg-cryptopulse-tfstate` si vous voulez retirer aussi le state. Le Key Vault est purgé à la destruction, ce qui permet de redéployer sans conflit de nom.
 
-## 8. Accès aux services
+## 10. Accès SSH à la VM
 
-| Service | URL en HTTPS (défaut) | URL en HTTP (`enable_https = false`) | Identifiants |
-|---|---|---|---|
-| Grafana | `https://<fqdn>` | `http://<IP>:3000` | `admin` et `make grafana-password` |
-| Airflow | `https://<fqdn>:8443` | `http://<IP>:8080` | `admin` et `make secrets` |
-| Dashboard Streamlit | `https://<fqdn>:9443` | `http://<IP>:8501` | aucun, limité par IP |
-| API | `https://<fqdn>:8444/docs` | `http://<IP>:8000/docs` | clé `make api-key` |
-| Prometheus et Alertmanager | `localhost:9090` et `:9093` par tunnel SSH | idem | aucun |
+### Comment ça marche
+
+Vous n'avez jamais à créer ni à envoyer de clé SSH : Terraform s'en charge.
+
+1. Terraform génère une paire de clés RSA 4096 bits.
+2. La **clé publique** est installée sur la VM pour l'utilisateur `cpadmin` (variable `admin_username`).
+3. La **clé privée** est stockée dans le Key Vault, dans le secret `vm-ssh-private-key`.
+4. Le groupe de sécurité réseau (NSG) n'autorise le port 22 que depuis `allowed_ip`, et seulement si `enable_ssh = true` (cas de `dev`, pas de `prod`).
+
+Il suffit donc de **télécharger la clé privée depuis Key Vault**, de la protéger, puis de se connecter.
+
+### Ce qu'il faut avant de commencer
+
+| Condition | Comment la vérifier |
+|---|---|
+| Le déploiement est terminé | `make output` affiche `vm_public_ip` et `key_vault_name` |
+| La VM est démarrée | En `dev`, elle s'éteint à 21h00 UTC et redémarre à 07h00 UTC |
+| Votre IP est autorisée | Elle doit être égale à `allowed_ip` (sinon `make deploy ALLOWED_IP=<votre IP>`) |
+| SSH est activé | `enable_ssh = true` (valeur par défaut en `dev`) |
+| Vous avez accès au Key Vault | Même compte Azure que celui qui a déployé (rôle Key Vault Administrator), ou au minimum Key Vault Secrets User |
+
+### Étape 1 : télécharger la clé privée
+
+**Méthode A : avec `make` (Linux, macOS, WSL, Cloud Shell)**
 
 ```bash
-make ssh-key         # récupère la clé SSH depuis Key Vault
-make tunnel          # ouvre le tunnel vers Prometheus et Alertmanager
+make ssh-key                # écrit ~/.ssh/cryptopulse-dev avec les bonnes permissions
+make ssh-key ENV=prod       # écrit ~/.ssh/cryptopulse-prod
 ```
 
-Prometheus, Alertmanager, PostgreSQL et Loki ne sont jamais exposés publiquement. Le nom `<fqdn>` a la forme `cryptopulse-dev-xxxx.norwayeast.cloudapp.azure.com`.
+La commande crée `~/.ssh` si besoin, lit le secret `vm-ssh-private-key` et applique `chmod 600`.
 
-## 9. API de données
+**Méthode B : avec Azure CLI seule (depuis n'importe quel poste, sans cloner le dépôt)**
+
+Récupérez d'abord le nom du Key Vault (`make output`, ligne `key_vault_name`, de la forme `kv-cryptopulse-dev-xxxx`), puis :
+
+```bash
+# Linux, macOS, WSL
+mkdir -p ~/.ssh
+az keyvault secret show --vault-name <key_vault_name> \
+  --name vm-ssh-private-key --query value -o tsv > ~/.ssh/cryptopulse-dev
+chmod 600 ~/.ssh/cryptopulse-dev
+```
+
+```powershell
+# Windows PowerShell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.ssh" | Out-Null
+az keyvault secret show --vault-name <key_vault_name> `
+  --name vm-ssh-private-key --query value -o tsv |
+  Set-Content -Encoding ascii "$env:USERPROFILE\.ssh\cryptopulse-dev"
+icacls "$env:USERPROFILE\.ssh\cryptopulse-dev" /inheritance:r /grant:r "$($env:USERNAME):(R)"
+```
+
+Sous Windows PowerShell 5.1, n'utilisez pas l'opérateur `>` : il écrit en UTF-16 et la clé devient illisible pour `ssh`.
+
+**Méthode C : depuis le portail Azure**
+
+1. Portail Azure, ouvrir le Key Vault `kv-cryptopulse-dev-xxxx`.
+2. **Objets**, puis **Secrets**, puis `vm-ssh-private-key`.
+3. Ouvrir la version courante et cliquer sur **Afficher la valeur du secret**.
+4. Copier tout le contenu, de `-----BEGIN OPENSSH PRIVATE KEY-----` à `-----END OPENSSH PRIVATE KEY-----` inclus, dans un fichier `~/.ssh/cryptopulse-dev`, avec un retour à la ligne final.
+5. Appliquer les permissions (`chmod 600` sous Linux et macOS, `icacls` sous Windows comme ci-dessus).
+
+Si le portail ou la CLI répond `Forbidden`, votre compte n'a pas de rôle sur le Key Vault ou votre IP n'est pas autorisée (cas de `lock_public_access = true`, où seule `deployer_ip` passe).
+
+### Étape 2 : se connecter
+
+```bash
+make output                                   # repérer ssh_command et vm_public_ip
+ssh -i ~/.ssh/cryptopulse-dev cpadmin@<IP_VM>
+```
+
+Le nom DNS (`fqdn`) fonctionne aussi à la place de l'IP. L'IP publique est statique : elle ne change pas à l'arrêt de la VM. À la première connexion, `ssh` demande de confirmer l'empreinte du serveur : répondez `yes`.
+
+Pour ne plus retaper la commande, ajoutez ce bloc à `~/.ssh/config` :
+
+```text
+Host cryptopulse-dev
+    HostName <IP_VM ou fqdn>
+    User cpadmin
+    IdentityFile ~/.ssh/cryptopulse-dev
+    IdentitiesOnly yes
+```
+
+Ensuite, `ssh cryptopulse-dev` suffit. Ce même nom d'hôte est utilisable avec `scp` et avec l'extension Remote - SSH de VS Code.
+
+### Étape 3 : explorer la VM
+
+```bash
+cloud-init status --wait                              # fin du premier démarrage
+sudo journalctl -u cryptopulse-sync -n 50 --no-pager  # dernier déploiement
+systemctl list-timers 'cryptopulse-*'                 # synchronisation et sauvegarde
+docker compose -p cryptopulse ps                      # état des conteneurs
+free -h && df -h / /data                              # mémoire et disques
+```
+
+L'application est dans `/opt/cryptopulse` et les données dans `/data`. Les opérations courantes (logs, redémarrage, shell SQL, déclenchement de DAG) sont dans le [runbook](docs/runbook.md#3-opérations-courantes).
+
+### Accéder à Prometheus et Alertmanager
+
+Ces services ne sont jamais exposés sur Internet. Ouvrez un tunnel SSH :
+
+```bash
+make tunnel
+```
+
+Tant que la commande tourne, Prometheus est sur `http://localhost:9090` et Alertmanager sur `http://localhost:9093`. Arrêtez le tunnel avec `Ctrl+C`. La cible suppose l'utilisateur `cpadmin` et la clé `~/.ssh/cryptopulse-dev` : adaptez la commande si vous avez changé `admin_username`.
+
+### Copier des fichiers
+
+```bash
+scp -i ~/.ssh/cryptopulse-dev cpadmin@<IP_VM>:/data/backups/cryptopulse-<horodatage>.dump .
+```
+
+### En production (`enable_ssh = false`)
+
+Le port 22 est fermé. Deux possibilités :
+
+- **Commande d'exécution Azure**, sans ouvrir de port :
+
+  ```bash
+  az vm run-command invoke -g rg-cryptopulse-prod -n vm-cryptopulse-prod \
+    --command-id RunShellScript --scripts "docker compose -p cryptopulse ps"
+  ```
+
+- **Réactivation temporaire** : passer `enable_ssh = true` dans `infra/envs/prod/terraform.tfvars`, lancer `make deploy ENV=prod ALLOWED_IP=<votre IP>`, intervenir, puis remettre `false` et redéployer.
+
+### Dépannage SSH
+
+| Symptôme | Cause probable | Action |
+|---|---|---|
+| `Connection timed out` | Votre IP a changé, ou la VM est éteinte, ou `enable_ssh = false` | `make deploy ALLOWED_IP=<votre IP>` (seul le NSG change). Vérifier l'état de la VM dans le portail |
+| `Connection refused` | La VM démarre encore | Attendre quelques minutes et réessayer |
+| `WARNING: UNPROTECTED PRIVATE KEY FILE` | Permissions trop larges | `chmod 600 ~/.ssh/cryptopulse-dev` (`icacls` sous Windows) |
+| `Permission denied (publickey)` | Mauvais utilisateur, mauvaise clé, ou clé remplacée par un nouveau déploiement | Utiliser `cpadmin`, relancer `make ssh-key` pour récupérer la clé courante |
+| `Load key ... invalid format` | Clé tronquée, encodage UTF-16 ou ligne finale manquante | Retélécharger la clé avec la méthode A ou B |
+| `REMOTE HOST IDENTIFICATION HAS CHANGED` | La VM a été recréée | `ssh-keygen -R <IP_VM>` puis se reconnecter |
+| `Forbidden` ou `Caller is not authorized` sur Key Vault | Rôle manquant ou IP non autorisée sur le coffre | Utiliser le compte qui a déployé, ou vérifier `deployer_ip` si `lock_public_access = true` |
+
+### Bonnes pratiques
+
+- La clé privée donne un accès administrateur (`sudo`) à la VM : ne la committez jamais (le `.gitignore` exclut `*.pem` mais pas un fichier nommé autrement) et ne la partagez pas.
+- Supprimez-la des postes partagés ou temporaires, y compris du Cloud Shell, après usage.
+- Le state Terraform contient aussi cette clé : ne le partagez pas non plus.
+- Pour changer de clé : `terraform apply -replace='module.platform.tls_private_key.vm'` **recrée la VM** (le disque de données est conservé). Relancez ensuite `make ssh-key` et `ssh-keygen -R <IP_VM>`. Voir la [rotation des secrets](docs/runbook.md#5-rotation-des-secrets).
+
+## 11. Accès aux services
+
+### Adresses et identifiants
+
+| Service | URL en HTTPS (défaut) | URL en HTTP (`enable_https = false`) | Utilisateur | Mot de passe ou clé |
+|---|---|---|---|---|
+| Grafana | `https://<fqdn>` | `http://<IP>:3000` | `admin` | `make grafana-password` |
+| Airflow | `https://<fqdn>:8443` | `http://<IP>:8080` | `admin` | `make secrets` |
+| Dashboard Streamlit | `https://<fqdn>:9443` | `http://<IP>:8501` | aucun | aucun, limité par IP |
+| API | `https://<fqdn>:8444/docs` | `http://<IP>:8000/docs` | aucun | clé `make api-key` en en-tête `X-API-Key` |
+| Prometheus et Alertmanager | `localhost:9090` et `:9093` par tunnel SSH (`make tunnel`) | idem | aucun | aucun |
+| VM (SSH) | `cpadmin@<IP>` sur le port 22 | idem | `cpadmin` | clé du Key Vault ([section 10](#10-accès-ssh-à-la-vm)) |
+
+`make output` affiche les URLs exactes. Le nom `<fqdn>` a la forme `cryptopulse-dev-xxxx.norwayeast.cloudapp.azure.com`. Prometheus, Alertmanager, PostgreSQL et Loki ne sont jamais exposés publiquement.
+
+### Où sont les secrets
+
+| Secret | Nom dans Key Vault | Commande |
+|---|---|---|
+| Mot de passe Grafana | `grafana-admin-password` | `make grafana-password` |
+| Mot de passe Airflow | `airflow-admin-password` | `make secrets` |
+| Clé de l'API | `api-key` | `make api-key` |
+| Clé SSH privée | `vm-ssh-private-key` | `make ssh-key` |
+| Mot de passe PostgreSQL et autres | `postgres-password`, `monitoring-db-password`, `api-db-password`... | `az keyvault secret show --vault-name <key_vault_name> --name <nom> --query value -o tsv` |
+
+### Si une page ne s'ouvre pas
+
+1. Vérifiez que votre IP actuelle est bien `allowed_ip` : tout le reste est bloqué par le NSG.
+2. Vérifiez que la VM est démarrée (extinction à 21h00 UTC en `dev`).
+3. Un certificat invalide pendant les premières minutes est normal : Caddy attend l'émission Let's Encrypt.
+4. Consultez le [dépannage](#20-dépannage).
+
+## 12. API de données
 
 L'API est en lecture seule, protégée par une clé dans l'en-tête `X-API-Key`. Elle lit uniquement les schémas `marts` et `ops`, jamais les données brutes. La documentation interactive est sur `/docs`.
 
@@ -291,7 +619,7 @@ curl -s -H "X-API-Key: $KEY" "$API/v1/forecasts/ethereum"
 
 Les nombres sont renvoyés en nombres JSON. Une base encore vide renvoie 503 avec un message explicite. L'API expose ses propres métriques à Prometheus (requêtes par route et statut, latence) sur un port interne.
 
-## 10. Dashboards, métriques et alertes
+## 13. Dashboards, métriques et alertes
 
 ### Dashboards Grafana
 
@@ -355,7 +683,7 @@ Les alertes en cours s'affichent dans le dashboard Pipeline et qualité. Pour le
 
 La procédure à suivre pour chaque alerte est dans le [runbook](docs/runbook.md#7-playbooks-par-alerte).
 
-## 11. Sauvegardes et restauration
+## 14. Sauvegardes et restauration
 
 | Quoi | Fréquence | Où | Conservation |
 |---|---|---|---|
@@ -375,7 +703,7 @@ sudo cryptopulse-restore /data/backups/cryptopulse-20261009T033000Z.dump
 
 La restauration vérifie l'archive, arrête Airflow, l'API et le dashboard, restaure en une transaction, réapplique les droits des rôles en lecture seule et redémarre les services. La procédure complète, y compris la restauration d'un snapshot du disque et un test trimestriel, est dans le [runbook](docs/runbook.md#4-sauvegardes-et-restauration). Le RPO est de 24 heures au pire pour la base.
 
-## 12. Coûts et planification de la VM
+## 15. Coûts et planification de la VM
 
 Ordre de grandeur mensuel pour `norwayeast`, à confirmer avec le calculateur de prix Azure :
 
@@ -395,12 +723,13 @@ Pour être prévenu avant d'épuiser le crédit, activez le budget : `monthly_bu
 
 La plateforme complète occupe la mémoire des 4 Go de la VM avec des limites par conteneur, des réglages Airflow réduits, une rétention Prometheus bornée et un swap de 4 Go. Si `LowMemory` se déclenche souvent, désactivez Loki (`enable_logging = false`) ou passez à `Standard_B2ms` (8 Go).
 
-## 13. Sécurité
+## 16. Sécurité
 
 | Sujet | Mise en oeuvre |
 |---|---|
 | Secrets | Générés par Terraform, stockés dans Key Vault, jamais saisis par un humain ni écrits dans Git. `runtime.env` est en permissions 600 |
 | Authentification Azure | Identité managée pour la VM, aucune clé de stockage utilisée par l'application. Droits limités : lecture et écriture du Data Lake, lecture des secrets, création de snapshots de son disque |
+| Accès SSH | Paire de clés RSA 4096 générée par Terraform, clé privée dans Key Vault (`vm-ssh-private-key`), port 22 limité à `allowed_ip/32` et fermé en production (`enable_ssh = false`). Voir la [section 10](#10-accès-ssh-à-la-vm) |
 | Réseau | NSG : tous les ports applicatifs et SSH limités à `allowed_ip/32`. Seul le port 80 est ouvert à Internet, pour le défi Let's Encrypt, et Caddy n'y répond qu'avec le défi ou une redirection. PostgreSQL, Prometheus, Alertmanager et Loki ne sont pas exposés |
 | HTTPS | Certificats Let's Encrypt automatiques par Caddy, HSTS, en-têtes de sécurité, TLS 1.2 minimum sur le Storage |
 | PostgreSQL | Rôles `monitoring_ro` et `api_ro` en lecture seule. `api_ro` ne lit que `marts` et `ops`, avec un délai de requête de 10 s et 10 connexions au plus. Le script de rôles est rejoué à chaque déploiement et restauration |
@@ -418,7 +747,7 @@ Limites assumées :
 - L'API n'a pas de limitation de débit par client.
 - Le port 80 ouvert à Internet est le prix du certificat automatique (voir l'[ADR 0006](docs/adr/0006-https-avec-caddy.md)).
 
-## 14. Développement local
+## 17. Développement local
 
 La plateforme complète tourne sur votre poste, avec Azurite à la place du Data Lake Azure : aucun compte ni coût Azure.
 
@@ -434,7 +763,7 @@ Les URLs locales sont Airflow `http://localhost:8080`, Grafana `http://localhost
 
 Le code accepte aussi la chaîne de connexion `UseDevelopmentStorage=true` des TP et la convertit en chaîne Azurite standard, car le SDK Azure v12 ne gère pas ce raccourci.
 
-## 15. Tests et qualité
+## 18. Tests et qualité
 
 ```bash
 make setup-dev         # environnements Python pour les tests et pour dbt
@@ -472,7 +801,7 @@ Soyez conscient de ces limites avant le premier déploiement :
 
 Il est normal d'ajuster quelques détails propres à votre abonnement lors du premier déploiement.
 
-## 16. CI/CD
+## 19. CI/CD
 
 Les workflows de `.github/workflows` :
 
@@ -495,12 +824,14 @@ tools/setup_github_oidc.sh <organisation>/<depot> dev prod
 
 Le script crée l'application, les identifiants fédérés, les rôles nécessaires (dont `User Access Administrator`, que Terraform exige pour créer des role assignments) et affiche les commandes `gh variable set` à exécuter. Créez ensuite les environnements GitHub `dev` et `prod`, avec une validation manuelle pour `prod`. Sans ces variables, les jobs de déploiement sont simplement ignorés, et `make deploy` reste la méthode de référence.
 
-## 17. Dépannage
+## 20. Dépannage
 
 | Symptôme | Cause probable | Action |
 |---|---|---|
 | `ALLOWED_IP introuvable` | `api.ipify.org` injoignable | `make deploy ALLOWED_IP=x.x.x.x` |
 | Services inaccessibles depuis le navigateur | IP différente de `allowed_ip` | `make deploy ALLOWED_IP=<votre IP>` |
+| `Connection timed out` en SSH | IP différente de `allowed_ip`, VM éteinte ou `enable_ssh = false` | Voir le [dépannage SSH](#dépannage-ssh) |
+| `Permission denied (publickey)` | Mauvaise clé ou mauvais utilisateur | `make ssh-key`, puis `ssh -i ~/.ssh/cryptopulse-dev cpadmin@<IP>` |
 | `AuthorizationFailed` ou `MissingSubscriptionRegistration` | Resource provider non enregistré | `make providers`, attendre quelques minutes |
 | Taille de VM ou région refusée | Politique de l'abonnement Students | Changer `vm_size` ou `location` |
 | Erreur sur le budget | API de budgets non disponible pour cette offre | `monthly_budget = 0` |
@@ -520,7 +851,7 @@ Le script crée l'application, les identifiants fédérés, les rôles nécessai
 
 Les procédures détaillées par alerte et les opérations courantes sont dans le [runbook](docs/runbook.md).
 
-## 18. Limites et évolutions
+## 21. Limites et évolutions
 
 - **Disponibilité** : une seule VM, sans haute disponibilité. La reprise repose sur les sauvegardes et la reconstruction par Terraform. Pour une vraie production, viser AKS ou Container Apps, PostgreSQL Flexible Server et un Airflow avec CeleryExecutor ou KubernetesExecutor.
 - **Prévisions** : le modèle est volontairement simple. Le backtest affiché dans les données montrera souvent des performances proches d'une marche aléatoire, ce qui est un résultat normal pour des cryptomonnaies.
@@ -532,10 +863,14 @@ Les procédures détaillées par alerte et les opérations courantes sont dans l
 - **Snapshots** : non cohérents au niveau applicatif. La sauvegarde logique reste la référence.
 - **Données** : l'historique profond au-delà de 90 jours est quotidien, pas horaire.
 
-## 19. Documentation complémentaire
+## 22. Documentation complémentaire
 
 | Document | Contenu |
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Diagrammes Mermaid : infrastructure, services, flux de données, séquence de déploiement, planning |
 | [docs/runbook.md](docs/runbook.md) | Exploitation : accès, opérations, sauvegarde et restauration, rotation des secrets, playbooks par alerte, test de restauration |
 | [docs/adr/README.md](docs/adr/README.md) | Onze décisions d'architecture avec contexte, alternatives et conséquences |
+
+## 23. Licence et auteur
+
+Projet distribué sous licence MIT (voir [LICENSE](LICENSE)). Auteur : Pape Lo, cours DataOps, année 2025 - 2026.
