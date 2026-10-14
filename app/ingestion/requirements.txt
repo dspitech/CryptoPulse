@@ -1,7 +1,7 @@
 # Dependances d'execution du package cryptopulse_ingestion (installees dans l'image Airflow)
 requests>=2.31
 azure-storage-blob==12.22.0
-azure-identity==1.17.1
+azure-identity==1.26.0
 psycopg2-binary==2.9.9
 pyarrow==17.0.0
 scipy==1.13.1
