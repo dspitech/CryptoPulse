@@ -1,0 +1,64 @@
+# Metriques metier exposees a Prometheus a partir des tables CryptoPulse.
+
+cryptopulse_freshness:
+  query: "SELECT COALESCE(EXTRACT(EPOCH FROM (now() - max(snapshot_ts))) / 3600, 9999)::float8 AS age_hours FROM raw.prices"
+  master: true
+  metrics:
+    - age_hours:
+        usage: "GAUGE"
+        description: "Age du dernier snapshot de prix en heures"
+
+cryptopulse_rows:
+  query: "SELECT count(*)::float8 AS total, (count(*) FILTER (WHERE loaded_at > now() - interval '24 hours'))::float8 AS last_24h FROM raw.prices"
+  master: true
+  metrics:
+    - total:
+        usage: "GAUGE"
+        description: "Nombre total de lignes dans raw.prices"
+    - last_24h:
+        usage: "GAUGE"
+        description: "Lignes chargees dans raw.prices sur les dernieres 24 heures"
+
+cryptopulse_quality:
+  query: "SELECT (count(*) FILTER (WHERE status = 'FAIL'))::float8 AS failed_checks, (count(*) FILTER (WHERE status = 'WARNING'))::float8 AS warning_checks FROM ops.quality_runs WHERE run_at > now() - interval '3 hours'"
+  master: true
+  metrics:
+    - failed_checks:
+        usage: "GAUGE"
+        description: "Controles qualite en FAIL sur les 3 dernieres heures"
+    - warning_checks:
+        usage: "GAUGE"
+        description: "Controles qualite en WARNING sur les 3 dernieres heures"
+
+cryptopulse_price:
+  query: "SELECT DISTINCT ON (coin_id) coin_id, price_usd::float8 AS usd, COALESCE(pct_change_24h, 0)::float8 AS pct_24h FROM raw.prices ORDER BY coin_id, snapshot_ts DESC"
+  master: true
+  metrics:
+    - coin_id:
+        usage: "LABEL"
+        description: "Identifiant de la cryptomonnaie"
+    - usd:
+        usage: "GAUGE"
+        description: "Dernier prix en USD"
+    - pct_24h:
+        usage: "GAUGE"
+        description: "Variation sur 24 heures en pourcent"
+
+cryptopulse_anomalies:
+  query: "SELECT c.coin_id, (count(a.*) FILTER (WHERE a.is_anomaly AND a.snapshot_ts > now() - interval '24 hours'))::float8 AS last_24h FROM marts.dim_coins c LEFT JOIN marts.fct_price_anomalies a USING (coin_id) GROUP BY c.coin_id"
+  master: true
+  metrics:
+    - coin_id:
+        usage: "LABEL"
+        description: "Identifiant de la cryptomonnaie"
+    - last_24h:
+        usage: "GAUGE"
+        description: "Anomalies de prix detectees sur les dernieres 24 heures"
+
+cryptopulse_fear_greed:
+  query: "SELECT value::float8 AS value FROM marts.fct_fear_greed ORDER BY fng_date DESC LIMIT 1"
+  master: true
+  metrics:
+    - value:
+        usage: "GAUGE"
+        description: "Dernier Fear & Greed Index (0 a 100)"

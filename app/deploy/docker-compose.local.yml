@@ -1,0 +1,69 @@
+# Surcharge pour le developpement local : Azurite remplace le Data Lake Azure et les
+# donnees sont stockees dans des volumes Docker nommes.
+# Usage : docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file .env.local up -d
+# (voir `make local-up`).
+x-local-storage: &local-storage
+  AZURE_STORAGE_CONNECTION_STRING: ${LOCAL_STORAGE_CONNECTION_STRING}
+  STORAGE_ACCOUNT: devstoreaccount1
+
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.33.0
+    restart: unless-stopped
+    command: azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck --loose
+    volumes:
+      - azurite-data:/data
+    ports:
+      - "127.0.0.1:10000:10000"
+
+  postgres:
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  airflow-init:
+    environment: *local-storage
+    volumes:
+      - airflow-logs:/opt/airflow/logs
+    depends_on:
+      azurite:
+        condition: service_started
+
+  airflow-webserver:
+    environment: *local-storage
+    volumes:
+      - airflow-logs:/opt/airflow/logs
+
+  airflow-scheduler:
+    environment: *local-storage
+    volumes:
+      - airflow-logs:/opt/airflow/logs
+
+  prometheus:
+    volumes:
+      - prometheus-data:/prometheus
+      - ./local/prometheus-targets:/etc/prometheus/targets:ro
+
+  alertmanager:
+    volumes:
+      - alertmanager-data:/alertmanager
+      - ./local/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+
+  grafana:
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+  # Metriques de la machine hote : sans objet avec Docker Desktop
+  node-exporter:
+    profiles: ["vm-only"]
+  cadvisor:
+    profiles: ["vm-only"]
+
+volumes:
+  azurite-data:
+  pg-data:
+  airflow-logs:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:

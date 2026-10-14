@@ -1,0 +1,14 @@
+line-length = 120
+target-version = "py311"
+extend-exclude = ["app/dbt/target", "node_modules"]
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[lint.per-file-ignores]
+# Textes de description de panneaux et chaines de test : la lisibilite prime sur la longueur de ligne
+"tools/*" = ["E501"]
+"app/*/tests/*" = ["E501"]
+"app/api/main.py" = ["E501"]
+# Les tests e2e construisent volontairement du SQL a partir de constantes de test
+"app/ingestion/tests/e2e/*" = ["E501"]

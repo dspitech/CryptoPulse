@@ -1,0 +1,56 @@
+groups:
+  - name: operations
+    rules:
+      - alert: DatabaseBackupMissing
+        expr: time() - cryptopulse_backup_last_success_timestamp_seconds > 129600
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Aucune sauvegarde PostgreSQL recente"
+          description: "La derniere sauvegarde reussie date de {{ $value | humanizeDuration }}. Seuil : 36 h."
+
+      - alert: DatabaseBackupMetricAbsent
+        expr: absent(cryptopulse_backup_last_success_timestamp_seconds)
+        for: 2d
+        labels:
+          severity: warning
+        annotations:
+          summary: "Aucune sauvegarde n'a jamais reussi"
+          description: "La metrique de sauvegarde est absente depuis 2 jours : verifier cryptopulse-backup.timer."
+
+      - alert: DiskSnapshotTooOld
+        expr: time() - cryptopulse_disk_snapshot_last_success_timestamp_seconds > 864000
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Snapshot du disque de donnees trop ancien"
+          description: "Le dernier snapshot reussi date de {{ $value | humanizeDuration }}. Seuil : 10 jours."
+
+      - alert: ApiServerErrors
+        expr: sum(increase(cryptopulse_api_requests_total{status=~"5.."}[15m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Erreurs 5xx sur l'API"
+          description: "{{ $value | printf \"%.0f\" }} erreurs serveur en 15 minutes."
+
+      - alert: ApiHighLatency
+        expr: histogram_quantile(0.95, sum by (le) (rate(cryptopulse_api_request_duration_seconds_bucket[10m]))) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latence de l'API elevee"
+          description: "Latence p95 de {{ $value | printf \"%.2f\" }} s sur 10 minutes."
+
+      - alert: LoggingStackDown
+        expr: up{job="logging"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pile de logs indisponible"
+          description: "{{ $labels.instance }} (Loki ou Promtail) ne repond plus."

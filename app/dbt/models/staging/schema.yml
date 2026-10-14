@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: stg_prices
+    description: "Prix nettoyes (prix nuls ou negatifs exclus), un enregistrement par crypto et par snapshot."
+    columns:
+      - name: price_key
+        tests: [unique, not_null]
+      - name: coin_id
+        tests: [not_null]
+      - name: price_usd
+        tests: [not_null]

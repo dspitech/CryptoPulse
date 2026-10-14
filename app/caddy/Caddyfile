@@ -1,0 +1,51 @@
+{
+	email {$ACME_EMAIL}
+	admin off
+}
+
+# Defi ACME limite a HTTP-01 (port 80) : les ports applicatifs ne sont ouverts qu'a l'IP autorisee.
+(tls_http01) {
+	tls {
+		issuer acme {
+			disable_tlsalpn_challenge
+		}
+	}
+}
+
+(secure_headers) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+# Grafana
+{$PUBLIC_FQDN} {
+	import tls_http01
+	import secure_headers
+	reverse_proxy grafana:3000
+}
+
+# Airflow
+{$PUBLIC_FQDN}:8443 {
+	import tls_http01
+	import secure_headers
+	reverse_proxy airflow-webserver:8080
+}
+
+# Dashboard Streamlit
+{$PUBLIC_FQDN}:9443 {
+	import tls_http01
+	import secure_headers
+	reverse_proxy dashboard:8501
+}
+
+# API de donnees
+{$PUBLIC_FQDN}:8444 {
+	import tls_http01
+	import secure_headers
+	reverse_proxy api:8000
+}

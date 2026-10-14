@@ -1,0 +1,11 @@
+title = "CryptoPulse"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valeurs publiques ou factices : cle documentee d'Azurite (emulateur local) et cles de test"
+regexes = [
+  '''Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==''',
+  '''(test|e2e)-key-0123456789abcdef''',
+]

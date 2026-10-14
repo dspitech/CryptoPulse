@@ -1,0 +1,74 @@
+groups:
+  - name: infrastructure
+    rules:
+      - alert: TargetDown
+        expr: up{job!="logging"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Cible indisponible : {{ $labels.job }}"
+          description: "Prometheus ne parvient plus a collecter {{ $labels.instance }} (job {{ $labels.job }})."
+
+      - alert: HighCpuUsage
+        expr: 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU elevee sur la VM"
+          description: "Utilisation CPU superieure a 85 % depuis 15 minutes ({{ $value | printf \"%.0f\" }} %)."
+
+      - alert: LowMemory
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memoire disponible faible"
+          description: "Moins de 8 % de memoire disponible ({{ $value | printf \"%.1f\" }} %). Le swap est probablement sollicite."
+
+      - alert: DataDiskAlmostFull
+        expr: 100 - (node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes{mountpoint="/data"} * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disque de donnees presque plein"
+          description: "Le disque /data est utilise a {{ $value | printf \"%.0f\" }} %."
+
+      - alert: RootDiskAlmostFull
+        expr: 100 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disque systeme presque plein"
+          description: "Le disque / est utilise a {{ $value | printf \"%.0f\" }} %."
+
+      - alert: ServiceProbeFailing
+        expr: probe_success == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Sonde HTTP en echec"
+          description: "La sonde {{ $labels.instance }} ne repond plus correctement."
+
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL est inaccessible"
+          description: "L'exporter ne parvient pas a se connecter a PostgreSQL."
+
+      - alert: PostgresConnectionsHigh
+        expr: sum(pg_stat_activity_count) / max(pg_settings_max_connections) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Connexions PostgreSQL proches de la limite"
+          description: "{{ $value | printf \"%.0f\" }} % des connexions autorisees sont utilisees."

@@ -1,0 +1,27 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: prices
+        description: "Snapshots de prix charges depuis la zone bronze."
+        loaded_at_field: loaded_at
+        freshness:
+          warn_after: {count: 3, period: hour}
+          error_after: {count: 12, period: hour}
+        columns:
+          - name: coin_id
+            tests: [not_null]
+          - name: snapshot_ts
+            tests: [not_null]
+      - name: news_sentiment
+        description: "Articles d'actualite associes a une crypto, avec score de sentiment VADER."
+      - name: fear_greed
+        description: "Fear & Greed Index quotidien (0 a 100)."
+
+  - name: ops
+    schema: ops
+    tables:
+      - name: forecast_history
+        description: "Historique des previsions de prix generees chaque jour."

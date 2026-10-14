@@ -1,0 +1,39 @@
+# Estimation du cout mensuel de l'infrastructure sur chaque pull request (Infracost).
+# Necessite le secret INFRACOST_API_KEY (gratuit sur infracost.io) ; sinon le job est ignore.
+name: cost
+
+on:
+  pull_request:
+    paths: ["infra/**"]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  infracost:
+    runs-on: ubuntu-latest
+    env:
+      INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+      - uses: infracost/actions/setup@v3
+        if: env.INFRACOST_API_KEY != ''
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+      - name: Estimation de l'environnement dev
+        if: env.INFRACOST_API_KEY != ''
+        run: |
+          infracost breakdown --path infra/envs/dev \
+            --terraform-init-flags "-backend=false" \
+            --terraform-var allowed_ip=203.0.113.10 \
+            --format json --out-file /tmp/infracost.json
+      - name: Commentaire sur la pull request
+        if: env.INFRACOST_API_KEY != ''
+        run: |
+          infracost comment github --path /tmp/infracost.json \
+            --repo "$GITHUB_REPOSITORY" --github-token "${{ secrets.GITHUB_TOKEN }}" \
+            --pull-request "${{ github.event.pull_request.number }}" --behavior update

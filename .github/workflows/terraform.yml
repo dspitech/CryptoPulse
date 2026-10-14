@@ -1,0 +1,108 @@
+# Deploiement Azure par GitHub Actions avec OIDC (aucun secret Azure stocke dans GitHub).
+# Prerequis : executer une fois tools/setup_github_oidc.sh, puis renseigner les variables du depot
+# (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, TF_STATE_RG, TF_STATE_SA, ALLOWED_IP).
+# Sans ces variables, les jobs sont ignores.
+name: terraform
+
+on:
+  pull_request:
+    paths: ["infra/**", "app/**"]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environnement
+        type: choice
+        options: [dev, prod]
+        default: dev
+      action:
+        description: Action Terraform
+        type: choice
+        options: [plan, apply, destroy]
+        default: plan
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  ARM_USE_OIDC: "true"
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  TF_VAR_allowed_ip: ${{ vars.ALLOWED_IP }}
+  TF_VAR_notify_webhook_url: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+
+jobs:
+  plan:
+    if: github.event_name == 'pull_request' && vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+          terraform_wrapper: false
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Init
+        working-directory: infra/envs/dev
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_SA }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=dev.tfstate" \
+            -backend-config="use_azuread_auth=true"
+      - name: Plan
+        working-directory: infra/envs/dev
+        run: terraform plan -input=false -no-color | tee /tmp/plan.txt
+      - name: Commentaire sur la pull request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('/tmp/plan.txt', 'utf8').slice(-60000);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: '### Terraform plan (dev)\n```\n' + plan + '\n```'
+            });
+
+  apply:
+    if: github.event_name == 'workflow_dispatch' && vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    # L'environnement GitHub peut exiger une validation manuelle avant apply et destroy
+    environment: ${{ inputs.environment }}
+    concurrency: terraform-${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+          terraform_wrapper: false
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Init
+        working-directory: infra/envs/${{ inputs.environment }}
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_SA }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=${{ inputs.environment }}.tfstate" \
+            -backend-config="use_azuread_auth=true"
+      - name: Terraform ${{ inputs.action }}
+        working-directory: infra/envs/${{ inputs.environment }}
+        run: |
+          case "${{ inputs.action }}" in
+            plan)    terraform plan -input=false -no-color ;;
+            apply)   terraform apply -input=false -auto-approve -no-color ;;
+            destroy) terraform destroy -input=false -auto-approve -no-color ;;
+          esac

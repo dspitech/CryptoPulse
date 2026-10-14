@@ -1,0 +1,76 @@
+groups:
+  - name: pipeline
+    rules:
+      - alert: AirflowSchedulerHeartbeatMissing
+        expr: sum(increase(airflow_scheduler_heartbeat_total[5m])) < 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Le scheduler Airflow ne repond plus"
+          description: "Aucun heartbeat du scheduler depuis 5 minutes."
+
+      - alert: AirflowTaskFailures
+        expr: sum(increase(airflow_task_finished_total{state="failed"}[1h])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Des taches Airflow ont echoue"
+          description: "{{ $value | printf \"%.0f\" }} tache(s) en echec sur la derniere heure."
+
+      - alert: AirflowDagImportErrors
+        expr: max(airflow_dag_import_errors) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Erreurs d'import de DAG"
+          description: "Au moins un fichier de DAG ne peut pas etre importe."
+
+  - name: data
+    rules:
+      - alert: DataStale
+        expr: cryptopulse_freshness_age_hours > 3
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Donnees CryptoPulse perimees"
+          description: "Le dernier snapshot date de {{ $value | printf \"%.1f\" }} heures (seuil 3 h)."
+
+      - alert: DataMetricsAbsent
+        expr: absent(cryptopulse_freshness_age_hours)
+        for: 2h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Metriques de fraicheur absentes"
+          description: "Aucune metrique de fraicheur depuis 2 heures : le pipeline n'a jamais charge de donnees ou l'exporter est en erreur."
+
+      - alert: QualityChecksFailing
+        expr: cryptopulse_quality_failed_checks > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Controles qualite en echec"
+          description: "{{ $value | printf \"%.0f\" }} controle(s) qualite en FAIL sur les 3 dernieres heures."
+
+      - alert: PriceAnomalyDetected
+        expr: cryptopulse_anomalies_last_24h > 0
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Anomalie de prix : {{ $labels.coin_id }}"
+          description: "{{ $value | printf \"%.0f\" }} rendement(s) horaire(s) anormal(aux) sur 24 h pour {{ $labels.coin_id }} (z-score superieur a 3)."
+
+      - alert: LargePriceMove
+        expr: abs(cryptopulse_price_pct_24h) > 15
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Forte variation de prix : {{ $labels.coin_id }}"
+          description: "{{ $labels.coin_id }} varie de {{ $value | printf \"%.1f\" }} % sur 24 h."

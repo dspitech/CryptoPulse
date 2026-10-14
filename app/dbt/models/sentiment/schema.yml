@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: stg_news
+    description: "Articles d'actualite associes a une crypto (un enregistrement par article et par crypto)."
+    columns:
+      - name: news_key
+        tests: [unique, not_null]
+      - name: sentiment
+        tests: [not_null]
+      - name: label
+        tests:
+          - accepted_values:
+              values: ["positive", "negative", "neutral"]
+
+  - name: fct_daily_sentiment
+    description: "Sentiment moyen des actualites par crypto et par jour."
+    columns:
+      - name: sentiment_key
+        tests: [unique, not_null]
+
+  - name: fct_fear_greed
+    description: "Fear & Greed Index quotidien avec moyenne mobile 7 jours."
+    columns:
+      - name: fng_date
+        tests: [unique, not_null]

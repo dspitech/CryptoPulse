@@ -1,0 +1,120 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+
+packages:
+  - docker.io
+  - docker-compose-v2
+  - jq
+  - curl
+  - unzip
+  - rsync
+  - ca-certificates
+
+swap:
+  filename: /swapfile
+  size: 4294967296
+
+write_files:
+  - path: /etc/docker/daemon.json
+    permissions: "0644"
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "10m", "max-file": "3" }
+      }
+
+  - path: /etc/cryptopulse/env.conf
+    permissions: "0644"
+    content: |
+      ENVIRONMENT=${environment}
+      STORAGE_ACCOUNT=${storage_account_name}
+      KEY_VAULT_NAME=${key_vault_name}
+      IDENTITY_CLIENT_ID=${identity_client_id}
+      ARTIFACT_CONTAINER=${artifact_container}
+      ARTIFACT_BLOB=${artifact_blob}
+      COINS=${coins}
+      FRESHNESS_MAX_HOURS=${freshness_max_hours}
+      ENABLE_HTTPS=${enable_https}
+      ENABLE_LOGGING=${enable_logging}
+      PUBLIC_FQDN=${public_fqdn}
+      ACME_EMAIL=${acme_email}
+      DATA_DISK_ID=${data_disk_id}
+      ENABLE_DISK_SNAPSHOTS=${enable_disk_snapshots}
+      SNAPSHOT_RETENTION=${snapshot_retention}
+      BACKUP_CONTAINER=gold
+      BACKUP_PREFIX=backups/
+      BACKUP_LOCAL_RETENTION_DAYS=7
+
+  - path: /usr/local/sbin/cryptopulse-sync
+    permissions: "0750"
+    content: |
+      ${sync_script}
+
+  - path: /etc/systemd/system/cryptopulse-sync.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=CryptoPulse deployment sync
+      After=network-online.target docker.service
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/cryptopulse-sync
+      TimeoutStartSec=3600
+
+  - path: /etc/systemd/system/cryptopulse-sync.timer
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=CryptoPulse deployment sync timer
+
+      [Timer]
+      OnBootSec=2min
+      OnUnitInactiveSec=5min
+
+      [Install]
+      WantedBy=timers.target
+
+  - path: /etc/systemd/system/cryptopulse-backup.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=CryptoPulse database backup and data disk snapshot
+      After=docker.service
+
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/bash /opt/cryptopulse/app/deploy/bin/cryptopulse-backup.sh
+      TimeoutStartSec=1800
+
+  - path: /etc/systemd/system/cryptopulse-backup.timer
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=CryptoPulse daily backup
+
+      [Timer]
+      OnCalendar=*-*-* 03:30:00 UTC
+      Persistent=true
+      RandomizedDelaySec=300
+
+      [Install]
+      WantedBy=timers.target
+
+  - path: /etc/systemd/system/docker.service.d/10-data-mount.conf
+    permissions: "0644"
+    content: |
+      [Unit]
+      RequiresMountsFor=/data
+
+runcmd:
+  - systemctl daemon-reload
+  - systemctl enable --now docker
+  - mkdir -p /var/lib/node_exporter/textfile
+  - systemctl enable --now cryptopulse-sync.timer
+  - systemctl enable --now cryptopulse-backup.timer
+  - systemctl start --no-block cryptopulse-sync.service
+
+final_message: "CryptoPulse: cloud-init termine apres $UPTIME secondes."

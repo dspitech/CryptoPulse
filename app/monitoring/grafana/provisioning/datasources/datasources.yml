@@ -1,0 +1,38 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 30s
+      httpMethod: POST
+
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+
+  - name: CryptoPulse PostgreSQL
+    uid: cryptopulse-pg
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: postgres:5432
+    user: monitoring_ro
+    editable: false
+    jsonData:
+      database: cryptopulse
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false
+      maxOpenConns: 5
+    secureJsonData:
+      password: $MONITORING_DB_PASSWORD

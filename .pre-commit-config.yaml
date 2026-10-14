@@ -1,0 +1,49 @@
+# Installation : pip install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+        exclude: '\.tftpl$'
+      - id: check-json
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-added-large-files
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args: ["-S", "warning"]
+
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.96.1
+    hooks:
+      - id: terraform_fmt
+
+  - repo: local
+    hooks:
+      - id: terraform-wiring
+        name: Cablage Terraform
+        entry: python3 tools/check_terraform_wiring.py
+        language: system
+        pass_filenames: false
+        files: '^infra/.*\.tf$'
+      - id: grafana-dashboards
+        name: Dashboards Grafana a jour
+        entry: python3 -m pytest -q tools/test_dashboards.py
+        language: system
+        pass_filenames: false
+        files: '^(tools/generate_dashboards\.py|app/monitoring/grafana/dashboards/.*)$'

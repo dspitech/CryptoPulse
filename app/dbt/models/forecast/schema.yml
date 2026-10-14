@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: fct_forecasts_latest
+    description: "Prevision la plus recente par crypto et par date cible (ARIMA, intervalle a 80 %). Illustration statistique, pas un conseil financier."
+    columns:
+      - name: coin_id
+        tests: [not_null]
+      - name: yhat
+        tests: [not_null]
+
+  - name: fct_forecast_accuracy
+    description: "Erreur moyenne (MAPE) et taux de couverture de l'intervalle, par crypto et par horizon."
+    columns:
+      - name: accuracy_key
+        tests: [unique, not_null]
