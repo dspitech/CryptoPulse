@@ -5,6 +5,6 @@ azure-identity==1.17.1
 psycopg2-binary==2.9.9
 pyarrow==17.0.0
 scipy==1.13.1
-statsmodels==0.14.2
+statsmodels==0.15.0
 vaderSentiment==3.3.2
 defusedxml==0.7.1
